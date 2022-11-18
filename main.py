@@ -25,7 +25,10 @@ Step 4. Evolve anchors to improve anchor fitness
 def parse_args():
     parser = argparse.ArgumentParser(description="Auto anchor algorithm")
     parser.add_argument('--input', type=str, help='input xml directory path or xml file', required=True)
-    parser.add_argument('--img_size', type=int, default = (640,380), help='img size')
+    parser.add_argument('--img_size', default=[320, 320], type=int,nargs=2,
+                        help='input size (width, height)')
+    parser.add_argument('--letter_box', default=False, action='store_true',
+                        help='input size (width, height)')
     parser.add_argument('--num_box', type=int, default = 16, help='num prior box')
     
     args = parser.parse_args()
@@ -55,7 +58,7 @@ def check_input(arg):
     else:
         raise Exception("Input arg is wrong")
 
-def read_xml(img_size, data_xml):
+def read_xml(letter_box, img_size, data_xml):
     final_data = list()
     img_size_width = img_size[0]
     img_size_height = img_size[1]
@@ -69,32 +72,35 @@ def read_xml(img_size, data_xml):
         height_ratio = img_size_height/height
 
         #Letter box (Maintain image resolution ratio)
-        if width_ratio >= 1 and height_ratio >= 1:
-            if width_ratio > height_ratio:
+        if letter_box:
+            if width_ratio >= 1 and height_ratio >= 1:
+                if width_ratio > height_ratio:
+                    height = img_size_height
+                    width = width * height_ratio
+                    ratio = height_ratio
+                else:
+                    height = height * width_ratio
+                    width = img_size_width
+                    ratio = width_ratio
+            elif width_ratio >= 1 and height_ratio <= 1:
                 height = img_size_height
                 width = width * height_ratio
                 ratio = height_ratio
-            else:
+            elif width_ratio <= 1 and height_ratio >= 1:
                 height = height * width_ratio
                 width = img_size_width
                 ratio = width_ratio
-        elif width_ratio >= 1 and height_ratio <= 1:
-            height = img_size_height
-            width = width * height_ratio
-            ratio = height_ratio
-        elif width_ratio <= 1 and height_ratio >= 1:
-            height = height * width_ratio
-            width = img_size_width
-            ratio = width_ratio
+            else:
+                if width_ratio > height_ratio:
+                    height = height * width_ratio
+                    width = img_size_width
+                    ratio = width_ratio
+                else:
+                    height = img_size_height
+                    width = width * height_ratio
+                    ratio = height_ratio
         else:
-            if width_ratio > height_ratio:
-                height = height * width_ratio
-                width = img_size_width
-                ratio = width_ratio
-            else:
-                height = img_size_height
-                width = width * height_ratio
-                ratio = height_ratio
+            ratio = 1
 
         objects = tree.findall("object")
         for i, obj in enumerate(objects):
@@ -135,7 +141,7 @@ def get_best_fit(datas, anchor_w, anchor_h, th):
 def main(args):
     # Read xml file
     data_xml = check_input(args)
-    data = read_xml(args.img_size, data_xml)
+    data = read_xml(args.letter_box, args.img_size, data_xml)
     # Define anchor w. h
     anchor_w = [10.0, 16.0, 33.0, 30.0, 62.0, 59.0, 116.0, 156.0, 373.0]
     anchor_h = [13.0, 30.0, 23.0, 61.0, 45.0, 119.0, 90.0, 198.0, 326.0]
@@ -144,7 +150,7 @@ def main(args):
     print(f"current prior box (w,h) : { list(zip(anchor_w, anchor_h))}")
     print(f"current score:{result}")
     numpy_data = np.array(data)
-    k, dist = kmeans(numpy_data, args.num_box, iter=30)  # points, mean distance
+    k, dist = kmeans(numpy_data, args.num_box, iter=10)  # points, mean distance
     #sort
     sorted_dict = dict()
     for i, a in enumerate(k):
@@ -155,7 +161,7 @@ def main(args):
     new_h = list()
     for i in sorted_list:
         new_w.append(round(i[1][0], 1))
-        new_h.append(round(i[1][1],1))    
+        new_h.append(round(i[1][1], 1))    
     result2 = get_best_fit(data, new_w, new_h, default_th)
     print(f"recommend prior box (w,h) : {list(zip(new_w, new_h))}")
     print(f"recommend score:{result2}")
