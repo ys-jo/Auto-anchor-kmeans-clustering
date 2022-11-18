@@ -100,15 +100,19 @@ def read_xml(letter_box, img_size, data_xml):
                     width = width * height_ratio
                     ratio = height_ratio
         else:
-            ratio = 1
+            pass
 
         objects = tree.findall("object")
         for i, obj in enumerate(objects):
             s_data = list()
 
             bndbox = obj.find("bndbox")
-            bnd_width = float(bndbox.find('xmax').text)*ratio - float(bndbox.find('xmin').text)*ratio
-            bnd_height = float(bndbox.find('ymax').text)*ratio - float(bndbox.find('ymin').text)*ratio
+            if letter_box:
+                bnd_width = float(bndbox.find('xmax').text)*ratio - float(bndbox.find('xmin').text)*ratio
+                bnd_height = float(bndbox.find('ymax').text)*ratio - float(bndbox.find('ymin').text)*ratio
+            else:
+                bnd_width = float(bndbox.find('xmax').text)*width_ratio - float(bndbox.find('xmin').text)*width_ratio
+                bnd_height = float(bndbox.find('ymax').text)*height_ratio - float(bndbox.find('ymin').text)*height_ratio               
 
             s_data.append(round(bnd_width,3))
             s_data.append(round(bnd_height,3))
